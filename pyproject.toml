@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentdbg"
 version = "0.1.0"
-description = "Offline replay prototype for the bundled invoice agent"
+description = "Prototype for deterministic agent recording and replay"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"

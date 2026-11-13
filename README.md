@@ -1,6 +1,6 @@
-# agentdbg: offline invoice replay prototype
+# agentdbg: deterministic agent replay prototype
 
-`agentdbg` records, inspects, replays, and forks **only its bundled offline invoice example**. It demonstrates how a stale tool result changes an agent's answer. It does not connect to a live model or replay arbitrary Python agents.
+`agentdbg` is a prototype for recording, inspecting, replaying, and forking agent runs deterministically. The current release integrates **only the bundled offline invoice example**, which shows how a stale tool result changes an agent's answer. It does not connect to a live model or replay arbitrary Python agents.
 
 ## Before you record
 
