@@ -65,9 +65,9 @@ class ExampleAgent:
         return self.answer
 
 
-def worker_main():
+def worker_main(agent_type=ExampleAgent):
     init = json.loads(sys.stdin.readline())
-    agent = ExampleAgent()
+    agent = agent_type()
     agent.restore_state(init["state"])
     try:
         answer = agent.run(WorkerBoundary())
@@ -78,7 +78,7 @@ def worker_main():
     return 0
 
 
-def record_main():
+def record_main(agent_type=ExampleAgent, model=fixture_model, tool=fixture_tool, application="example"):
     if not all(os.environ.get(key) for key in ("AGENTDBG_RECORD_RUN", "AGENTDBG_RECORD_STORE", "AGENTDBG_CAPTURE_CONTENT")):
         print("example recording requires agentdbg record", file=sys.stderr)
         return 2
@@ -89,10 +89,12 @@ def record_main():
                      frozenset(json.loads(os.environ.get("AGENTDBG_REDACT_FIELDS", "[]"))),
                      environment_secrets())
     run_id = os.environ["AGENTDBG_RECORD_RUN"]
-    agent = ExampleAgent()
+    agent = agent_type()
     try:
         answer = agent.run(Recorder(store, run_id, store.workdir(run_id),
-                                    os.environ["AGENTDBG_CAPTURE_CONTENT"] == "1", fixture_model, fixture_tool))
+                                    os.environ["AGENTDBG_CAPTURE_CONTENT"] == "1", model, tool))
+        if store.get_run(run_id)["application"] != application:
+            raise ValueError("recording application mismatch")
         store.set_status(run_id, "wrong_answer" if answer != agent.expected_answer else "complete")
         print(f"run {run_id} answer={answer} expected={agent.expected_answer}")
         return 0

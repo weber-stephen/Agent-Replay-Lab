@@ -9,7 +9,7 @@ import sys
 
 from .report import format_diff, format_inspect, format_runs
 from .store import RunStore
-from .sandbox import ReplayController
+from .sandbox import EXAMPLE_MODULES, ReplayController
 from .privacy import environment_secrets
 
 
@@ -39,12 +39,15 @@ def main(argv=None):
     try:
         if args.command == "record":
             agent_command = args.agent_command[1:] if args.agent_command[:1] == ["--"] else args.agent_command
-            integrated = (len(agent_command) == 3 and agent_command[0] in ("python", "python3", sys.executable)
-                          and agent_command[1:] == ["-m", "agentdbg.example"])
-            if not integrated and agent_command != ["py", "-3", "-m", "agentdbg.example"]:
-                raise ValueError("record requires the integrated command: python -m agentdbg.example")
+            module = (agent_command[-1] if len(agent_command) == 3 and
+                      agent_command[0] in ("python", "python3", sys.executable) and agent_command[1] == "-m"
+                      else agent_command[-1] if len(agent_command) == 4 and agent_command[:3] == ["py", "-3", "-m"]
+                      else None)
+            application = next((name for name, value in EXAMPLE_MODULES.items() if value == module), None)
+            if application is None:
+                raise ValueError("record requires a bundled example module")
             store = RunStore(Path(args.store), frozenset(args.redact_field), environment_secrets())
-            run_id = store.create_run("example", args.capture_content)
+            run_id = store.create_run(application, args.capture_content)
             env = dict(os.environ, AGENTDBG_RECORD_RUN=run_id, AGENTDBG_RECORD_STORE=str(store.root.resolve()),
                        AGENTDBG_CAPTURE_CONTENT="1" if args.capture_content else "0",
                        AGENTDBG_REDACT_FIELDS=json.dumps(args.redact_field))
