@@ -18,6 +18,17 @@ class RecordedFailure(Exception):
         super().__init__(self.error_message or self.error_type or self.status)
 
 
+def linux_docker_available():
+    if not shutil.which("docker"):
+        return False
+    try:
+        result = subprocess.run(["docker", "info", "--format", "{{.OSType}}"],
+                                capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and result.stdout.strip() == "linux"
+
+
 def docker_command(source: Path, workdir: Path) -> list[str]:
     source, workdir = Path(source).resolve(), Path(workdir).resolve()
     if source.name != "agentdbg" or workdir.parent.name != "work" or not workdir.is_dir():
@@ -89,14 +100,9 @@ class ReplayController:
             self.store.append_step(fork, step)
         state = self.store.restore_checkpoint(parent_run_id, from_step - 1, workdir)
         self.store.save_checkpoint(fork, from_step - 1, state, workdir)
-        try:
-            docker_ready = bool(shutil.which("docker")) and subprocess.run(
-                ["docker", "info"], capture_output=True, timeout=5).returncode == 0
-        except (OSError, subprocess.TimeoutExpired):
-            docker_ready = False
-        if not docker_ready:
+        if not linux_docker_available():
             self.store.append_step(fork, {"operation": "system", "request": {"from": from_step},
-                                          "response": {"blocked": "Docker engine unavailable"}, "status": "blocked", "origin": "blocked"})
+                                          "response": {"blocked": "Linux Docker engine unavailable"}, "status": "blocked", "origin": "blocked"})
             self.store.set_status(fork, "blocked")
             return fork
         command = docker_command(Path(__file__).parent, workdir)

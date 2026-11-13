@@ -19,6 +19,12 @@ class StoreTests(unittest.TestCase):
         self.run = self.store.create_run("example", True)
         self.work = self.store.workdir(self.run)
 
+    def test_connection_closes_after_context(self):
+        with self.store._connect() as con:
+            self.assertIsNotNone(con.execute("SELECT 1").fetchone())
+        with self.assertRaises(sqlite3.ProgrammingError):
+            con.execute("SELECT 1")
+
     def test_round_trip_dedup_and_private(self):
         self.assertEqual(canonical_request("tool", {"b": 2, "a": [2, 1]}),
                          b'{"operation":"tool","request":{"a":[2,1],"b":2}}')

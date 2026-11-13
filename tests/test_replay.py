@@ -3,13 +3,12 @@ import io
 from pathlib import Path
 import tempfile
 import subprocess
-import shutil
 import unittest
 from unittest.mock import patch
 
 from agentdbg.example import ExampleAgent, fixture_model, fixture_tool
 from agentdbg.runtime import Recorder, WorkerBoundary
-from agentdbg.sandbox import ReplayController, RecordedFailure, docker_command
+from agentdbg.sandbox import ReplayController, RecordedFailure, docker_command, linux_docker_available
 from agentdbg.store import RunStore
 from agentdbg.cli import main
 
@@ -73,9 +72,12 @@ class ReplayTests(unittest.TestCase):
             "agentdbg.sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 1, "", "no daemon")):
             fork = ReplayController(self.store).replay(self.run, 1)
         self.assertIn("Docker engine unavailable", json.dumps(self.store.get_steps(fork)))
+        with patch("agentdbg.sandbox.shutil.which", return_value="docker"), patch(
+            "agentdbg.sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "windows\n", "")):
+            fork = ReplayController(self.store).replay(self.run, 1)
+        self.assertIn("Linux Docker engine unavailable", json.dumps(self.store.get_steps(fork)))
 
-    @unittest.skipUnless(shutil.which("docker") and subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL).returncode == 0, "Docker engine unavailable")
+    @unittest.skipUnless(linux_docker_available(), "Linux Docker engine unavailable")
     def test_container_blocks_network_and_outside_write(self):
         command = docker_command(Path(__file__).parents[1] / "agentdbg", self.store.workdir(self.run))
         script = ("import socket; from pathlib import Path; "
@@ -111,7 +113,7 @@ class ReplayTests(unittest.TestCase):
         override = json.loads((Path(__file__).parent / "fixtures/corrected-tool-result.json").read_text())
         process = FakeProcess()
         with patch("agentdbg.sandbox.shutil.which", return_value="docker"), patch(
-            "agentdbg.sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 0)), patch(
+            "agentdbg.sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "linux\n")), patch(
             "agentdbg.sandbox.subprocess.Popen", return_value=process):
             fork = ReplayController(self.store).replay(self.run, 2, override)
         self.assertTrue(process.stdout.closed)
@@ -170,7 +172,7 @@ class ReplayTests(unittest.TestCase):
                 self.stderr = io.StringIO()
             def wait(self): return 1
         with patch("agentdbg.sandbox.shutil.which", return_value="docker"), patch(
-            "agentdbg.sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 0)), patch(
+            "agentdbg.sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "linux\n")), patch(
             "agentdbg.sandbox.subprocess.Popen", return_value=FakeProcess()):
             fork = ReplayController(RunStore(policy_store.root)).replay(policy_run, 2, override)
         payloads = b"".join(p.read_bytes() for p in (policy_store.root / "payloads").iterdir())

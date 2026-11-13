@@ -14,7 +14,7 @@
 
 ## First run from an installed package
 
-From the checkout directory, install and use the CLI entry point. The `.agentdbg` directory should be new and private. In an offline environment with setuptools already installed, the install was verified with `python -m pip install --no-build-isolation --no-index .`; a plain `pip install .` could not fetch its isolated build dependency in this environment.
+From the checkout directory, install and use the CLI entry point. The `.agentdbg` directory should be new and private. A plain `python -m pip install .` was tested in a clean environment with access to the package index for the build dependency. Offline installation needs a locally available setuptools package.
 
 ```sh
 python -m pip install .
@@ -51,7 +51,7 @@ python -m agentdbg.cli --store .agentdbg fork RUN_ID --step 2 --response tests/f
 python -m agentdbg.cli --store .agentdbg diff RUN_ID FORK_ID
 ```
 
-The installed `agentdbg` command works from another directory, but the fixture path above is relative to this checkout. On Windows with the Python launcher, the source-tree record command is `py -3 -m agentdbg.cli --store .agentdbg record --capture-content -- py -3 -m agentdbg.example`. Docker Desktop must use Linux containers. Windows execution and storage ACLs have not been verified on a Windows host.
+The installed `agentdbg` command works from another directory, but the fixture path above is relative to this checkout. On Windows with the Python launcher, the source-tree record command is `py -3 -m agentdbg.cli --store .agentdbg record --capture-content -- py -3 -m agentdbg.example`. Docker Desktop must use Linux containers. Windows CI passed package installation, CLI help, and the unit suite, including source-tree recording. Docker-backed replay and storage ACLs have not been verified on Windows.
 
 ## How it works and limits
 

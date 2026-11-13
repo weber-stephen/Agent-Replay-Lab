@@ -1,6 +1,7 @@
 """Private SQLite metadata and content-addressed run payloads."""
 
 import hashlib
+from contextlib import closing, contextmanager
 import json
 import os
 from pathlib import Path
@@ -42,8 +43,10 @@ class RunStore:
         if os.name != "nt":
             self.db.chmod(0o600)
 
+    @contextmanager
     def _connect(self):
-        return sqlite3.connect(self.db)
+        with closing(sqlite3.connect(self.db)) as con, con:
+            yield con
 
     def _payload(self, value):
         data = canonical(value)
