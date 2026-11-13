@@ -3,7 +3,6 @@ import io
 import json
 import os
 import subprocess
-import shutil
 import sys
 import tempfile
 from unittest.mock import patch
@@ -12,6 +11,7 @@ import unittest
 
 from agentdbg.cli import main
 from agentdbg.store import RunStore
+from agentdbg.sandbox import linux_docker_available
 from agentdbg.report import format_inspect
 
 
@@ -74,8 +74,7 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(main(["--store", str(Path(tmp) / "store"), "record", "--",
                                        "py", "-3", "-m", "agentdbg.example"]), 0)
 
-    @unittest.skipUnless(shutil.which("docker") and subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL).returncode == 0, "Docker engine unavailable")
+    @unittest.skipUnless(linux_docker_available(), "Linux Docker engine unavailable")
     def test_clean_directory_replay_fork_diff(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "store"
