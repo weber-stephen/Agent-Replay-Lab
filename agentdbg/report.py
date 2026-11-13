@@ -64,9 +64,13 @@ def format_inspect(store, run_id, step=None):
         lines.append("state delta: " + _display(delta))
     except KeyError:
         lines.append("state delta: unavailable")
-    if (run["application"] == "example" and selected["operation"] == "tool" and
-            selected["request"].get("name") == "search_invoice"):
-        lines.append("seeded failure: stale invoice status; expected paid")
+    hints = {("example", "search_invoice"): "stale invoice status; expected paid",
+             ("triage", "get_ticket"): "ticket priority is low; expected high",
+             ("delivery", "model"): "model says in transit; expected delivered"}
+    hint = hints.get((run["application"], selected["request"].get("name") if
+                      selected["operation"] == "tool" else selected["operation"]))
+    if hint:
+        lines.append("seeded failure: " + hint)
     if selected["operation"] == "model":
         context = analyze_context([s for s in steps if s["operation"] == "model" and s["sequence"] <= step])[-1]
         lines.append("context: " + _display({k: v for k, v in context.items() if k != "input_tokens"}))

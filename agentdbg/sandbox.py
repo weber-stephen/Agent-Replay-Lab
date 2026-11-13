@@ -9,6 +9,9 @@ import subprocess
 from .runtime import canonical_request
 from .privacy import environment_secrets
 
+EXAMPLE_MODULES = {"example": "agentdbg.example", "triage": "agentdbg.triage_example",
+                   "delivery": "agentdbg.delivery_example"}
+
 
 class RecordedFailure(Exception):
     def __init__(self, step):
@@ -29,13 +32,15 @@ def linux_docker_available():
     return result.returncode == 0 and result.stdout.strip() == "linux"
 
 
-def docker_command(source: Path, workdir: Path) -> list[str]:
+def docker_command(source: Path, workdir: Path, application="example") -> list[str]:
     source, workdir = Path(source).resolve(), Path(workdir).resolve()
     if source.name != "agentdbg" or workdir.parent.name != "work" or not workdir.is_dir():
         raise ValueError("worker mount must use package source and a fresh run directory")
+    if application not in EXAMPLE_MODULES:
+        raise ValueError("unsupported replay application")
     return ["docker", "run", "-i", "--rm", "--network", "none", "--read-only", "--cap-drop", "ALL",
             "--security-opt", "no-new-privileges", "--tmpfs", "/tmp", "-v", f"{source}:/app/agentdbg:ro",
-            "-v", f"{workdir}:/run:rw", "-w", "/app", "python:3.11-slim", "python", "-m", "agentdbg.example", "--worker"]
+            "-v", f"{workdir}:/run:rw", "-w", "/app", "python:3.11-slim", "python", "-m", EXAMPLE_MODULES[application], "--worker"]
 
 
 class ReplayController:
@@ -44,7 +49,7 @@ class ReplayController:
 
     def prepare(self, parent_run_id, from_step, override=None):
         parent = self.store.get_run(parent_run_id)
-        if parent["application"] != "example":
+        if parent["application"] not in EXAMPLE_MODULES:
             raise ValueError("unsupported replay application")
         if not parent["replayable"]:
             raise ValueError("replay limitation: content was omitted, redacted, or truncated")
@@ -94,7 +99,7 @@ class ReplayController:
         self.store = self.store.__class__(self.store.root,
                                            frozenset(parent["redact_fields"]) | self.store.fields,
                                            self.store.secrets | environment_secrets())
-        fork = self.store.create_run("example", True, parent_run_id, from_step)
+        fork = self.store.create_run(parent["application"], True, parent_run_id, from_step)
         workdir = self.store.workdir(fork)
         for step in self.steps[:from_step - 1]:
             self.store.append_step(fork, step)
@@ -105,7 +110,7 @@ class ReplayController:
                                           "response": {"blocked": "Linux Docker engine unavailable"}, "status": "blocked", "origin": "blocked"})
             self.store.set_status(fork, "blocked")
             return fork
-        command = docker_command(Path(__file__).parent, workdir)
+        command = docker_command(Path(__file__).parent, workdir, parent["application"])
         if workdir != self.store.workdir(fork):
             raise ValueError("worker directory is outside this run")
         proc = None
